@@ -1,11 +1,15 @@
-FROM php:7.2.4-apache
+FROM php:5-apache
 
-COPY apache_default /etc/apache2/sites-available/000-default.conf
-RUN a2enmod rewrite
+RUN apt-get update
+RUN apt-get install -y php-pear
+RUN pear channel-discover pear.nrk.io
+RUN pear install nrk/Predis
 
-COPY public /var/www/html/public
+# If the container's stdio is connected to systemd-journald,
+# /proc/self/fd/{1,2} are Unix sockets and apache will not be able to open()
+# them. Use "cat" to write directly to the already opened fds without opening
+# them again.
+RUN sed -i 's#ErrorLog /proc/self/fd/2#ErrorLog "|$/bin/cat 1>\&2"#' /etc/apache2/apache2.conf
+RUN sed -i 's#CustomLog /proc/self/fd/1 combined#CustomLog "|/bin/cat" combined#' /etc/apache2/apache2.conf
 
-# Install software 
-RUN apt-get update && apt-get install -y git
-
-CMD ["-D", "FOREGROUND"]
+ADD index.html /var/www/html/index.html
